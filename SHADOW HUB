@@ -108,8 +108,8 @@ OpenBtnStroke.Parent = OpenCloseBtn
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 620, 0, 380)
-MainFrame.Position = UDim2.new(0.5, -310, 0.5, -190)
+MainFrame.Size = UDim2.new(0, 620, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -310, 0.5, -210)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
@@ -162,7 +162,7 @@ OwnerStatusLabel.TextXAlignment = Enum.TextXAlignment.Right
 OwnerStatusLabel.Parent = TopBar
 
 if isOwnerOnline() then
-    OwnerStatusLabel.Text = "OWNER IS ONLINE 👑" .. OWNER_NAME
+    OwnerStatusLabel.Text = "OWNER IS ONLINE 👑 " .. OWNER_NAME
 else
     OwnerStatusLabel.Text = "OWNER: " .. OWNER_NAME .. " (Offline)"
 end
@@ -585,9 +585,21 @@ createToggle(TabUtility, "Infinite Jump", function(state)
     notifyToggle("Infinite Jump", state)
 end)
 
--- 5. Custom Speed Input
+-- 5. FIXED: Persistent Speed Hack & Input
+local speedHackEnabled = false
+local targetWalkSpeed = 16
+
+RunService.Heartbeat:Connect(function()
+    if speedHackEnabled and LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum and hum.WalkSpeed ~= targetWalkSpeed then
+            hum.WalkSpeed = targetWalkSpeed
+        end
+    end
+end)
+
 local SpeedFrame = Instance.new("Frame")
-SpeedFrame.Size = UDim2.new(1, -10, 0, 40)
+SpeedFrame.Size = UDim2.new(1, -10, 0, 45)
 SpeedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 SpeedFrame.Parent = TabUtility
 
@@ -596,10 +608,10 @@ SpeedCorner.CornerRadius = UDim.new(0, 6)
 SpeedCorner.Parent = SpeedFrame
 
 local SpeedLabel = Instance.new("TextLabel")
-SpeedLabel.Size = UDim2.new(0.6, 0, 1, 0)
+SpeedLabel.Size = UDim2.new(0.5, 0, 1, 0)
 SpeedLabel.Position = UDim2.new(0, 10, 0, 0)
 SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "WalkSpeed Choice:"
+SpeedLabel.Text = "Speed Hack (Value):"
 SpeedLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
 SpeedLabel.TextSize = 13
 SpeedLabel.Font = Enum.Font.GothamMedium
@@ -607,8 +619,8 @@ SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
 SpeedLabel.Parent = SpeedFrame
 
 local SpeedBox = Instance.new("TextBox")
-SpeedBox.Size = UDim2.new(0, 60, 0, 24)
-SpeedBox.Position = UDim2.new(1, -70, 0.5, -12)
+SpeedBox.Size = UDim2.new(0, 50, 0, 26)
+SpeedBox.Position = UDim2.new(1, -120, 0.5, -13)
 SpeedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 SpeedBox.Text = "16"
 SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -620,15 +632,129 @@ local BoxCorner = Instance.new("UICorner")
 BoxCorner.CornerRadius = UDim.new(0, 4)
 BoxCorner.Parent = SpeedBox
 
-SpeedBox.FocusLost:Connect(function()
-    local val = tonumber(SpeedBox.Text)
-    if val and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = val
-        sendChatNotification("RESPECTED ITZ_SHADOW; WalkSpeed set to " .. val)
+local SpeedToggleBtn = Instance.new("TextButton")
+SpeedToggleBtn.Size = UDim2.new(0, 50, 0, 26)
+SpeedToggleBtn.Position = UDim2.new(1, -60, 0.5, -13)
+SpeedToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+SpeedToggleBtn.Text = "OFF"
+SpeedToggleBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+SpeedToggleBtn.Font = Enum.Font.GothamBold
+SpeedToggleBtn.TextSize = 11
+SpeedToggleBtn.Parent = SpeedFrame
+
+local SpeedToggleCorner = Instance.new("UICorner")
+SpeedToggleCorner.CornerRadius = UDim.new(0, 12)
+SpeedToggleCorner.Parent = SpeedToggleBtn
+
+SpeedToggleBtn.MouseButton1Click:Connect(function()
+    speedHackEnabled = not speedHackEnabled
+    local val = tonumber(SpeedBox.Text) or 16
+    targetWalkSpeed = val
+
+    if speedHackEnabled then
+        SpeedToggleBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        SpeedToggleBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+        SpeedToggleBtn.Text = "ON"
+        notifyToggle("Speed Hack", true)
+    else
+        SpeedToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        SpeedToggleBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        SpeedToggleBtn.Text = "OFF"
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16
+        end
+        notifyToggle("Speed Hack", false)
     end
 end)
 
--- 6. Teleport to Last Death Position
+SpeedBox.FocusLost:Connect(function()
+    local val = tonumber(SpeedBox.Text)
+    if val then
+        targetWalkSpeed = val
+        sendChatNotification("RESPECTED ITZ_SHADOW; WalkSpeed target set to " .. val)
+    end
+end)
+
+-- 6. NEW: Teleport to Other Player
+local TPPlayerFrame = Instance.new("Frame")
+TPPlayerFrame.Size = UDim2.new(1, -10, 0, 75)
+TPPlayerFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TPPlayerFrame.Parent = TabUtility
+
+local TPPCorner = Instance.new("UICorner")
+TPPCorner.CornerRadius = UDim.new(0, 6)
+TPPCorner.Parent = TPPlayerFrame
+
+local TPPLabel = Instance.new("TextLabel")
+TPPLabel.Size = UDim2.new(1, -15, 0, 25)
+TPPLabel.Position = UDim2.new(0, 10, 0, 5)
+TPPLabel.BackgroundTransparency = 1
+TPPLabel.Text = "Teleport to Player (Enter Username):"
+TPPLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+TPPLabel.TextSize = 13
+TPPLabel.Font = Enum.Font.GothamMedium
+TPPLabel.TextXAlignment = Enum.TextXAlignment.Left
+TPPLabel.Parent = TPPlayerFrame
+
+local TPPBox = Instance.new("TextBox")
+TPPBox.Size = UDim2.new(0.65, 0, 0, 30)
+TPPBox.Position = UDim2.new(0, 10, 0, 35)
+TPPBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+TPPBox.Text = ""
+TPPBox.PlaceholderText = "Player Name..."
+TPPBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TPPBox.Font = Enum.Font.GothamMedium
+TPPBox.TextSize = 12
+TPPBox.Parent = TPPlayerFrame
+
+local TPPBoxCorner = Instance.new("UICorner")
+TPPBoxCorner.CornerRadius = UDim.new(0, 4)
+TPPBoxCorner.Parent = TPPBox
+
+local TPPBtn = Instance.new("TextButton")
+TPPBtn.Size = UDim2.new(0.3, -15, 0, 30)
+TPPBtn.Position = UDim2.new(0.68, 0, 0, 35)
+TPPBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TPPBtn.Text = "Teleport"
+TPPBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+TPPBtn.Font = Enum.Font.GothamBold
+TPPBtn.TextSize = 12
+TPPBtn.Parent = TPPlayerFrame
+
+local TPPBtnCorner = Instance.new("UICorner")
+TPPBtnCorner.CornerRadius = UDim.new(0, 4)
+TPPBtnCorner.Parent = TPPBtn
+
+TPPBtn.MouseButton1Click:Connect(function()
+    local targetName = TPPBox.Text:lower()
+    if targetName == "" then return end
+    
+    local foundPlayer = nil
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            if p.Name:lower():sub(1, #targetName) == targetName or p.DisplayName:lower():sub(1, #targetName) == targetName then
+                foundPlayer = p
+                break
+            end
+        end
+    end
+
+    if foundPlayer and foundPlayer.Character and foundPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if myHrp then
+            myHrp.CFrame = foundPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+            sendChatNotification("RESPECTED ITZ_SHADOW; Teleported to player: " .. foundPlayer.Name)
+        end
+    else
+        StarterGui:SetCore("SendNotification", {
+            Title = "SHADOW HUB",
+            Text = "Player not found or has no character!",
+            Duration = 2
+        })
+    end
+end)
+
+-- 7. Teleport to Last Death Position
 local TPDeathBtn = Instance.new("TextButton")
 TPDeathBtn.Size = UDim2.new(1, -10, 0, 35)
 TPDeathBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
