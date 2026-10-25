@@ -187,7 +187,7 @@ ContentArea.Size = UDim2.new(1, -165, 1, -45)
 ContentArea.Position = UDim2.new(0, 160, 0, 42)
 ContentArea.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
 ContentArea.BorderSizePixel = 0
-ContentArea.Parent = ContentArea and MainFrame
+ContentArea.Parent = MainFrame
 
 local ContentCorner = Instance.new("UICorner")
 ContentCorner.CornerRadius = UDim.new(0, 6)
@@ -515,7 +515,172 @@ createToggle(TabAutoEat, "SHADOW HUB AUTO FAST EAT", function(state)
 end)
 
 -- ============================================================
--- TAB 4: UTILITIES, SPEED MOD & TELEPORTS
+-- TAB 4: UTILITIES, SPEED MOD & TELEPORTS (Z-FLY INTEGRATED)
+-- ============================================================
+
+-- ==================== Z-FLY INTEGRATION ====================
+local zFlyFlying = false
+local moveForward, moveBackward, moveLeft, moveRight = false, false, false, false
+local zFlyBodyVelocity, zFlyBodyGyro
+
+-- Z-Fly Remote D-Pad Frame (Default Hidden)
+local remoteFrame = Instance.new("Frame")
+remoteFrame.Name = "ZFlyRemoteFrame"
+remoteFrame.Size = UDim2.new(0, 140, 0, 140)
+remoteFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
+remoteFrame.BackgroundTransparency = 0.5
+remoteFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+remoteFrame.BorderSizePixel = 0
+remoteFrame.Active = true
+remoteFrame.Draggable = true
+remoteFrame.Visible = false -- Off state by default
+remoteFrame.Parent = ScreenGui
+
+local remoteCorner = Instance.new("UICorner")
+remoteCorner.CornerRadius = UDim.new(0, 10)
+remoteCorner.Parent = remoteFrame
+
+local function createDpadButton(name, size, pos, text)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Size = size
+    btn.Position = pos
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Text = text
+    btn.TextSize = 14
+    btn.Font = Enum.Font.SourceSansBold
+    btn.Parent = remoteFrame
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 4)
+    c.Parent = btn
+    return btn
+end
+
+local btnUp = createDpadButton("Up", UDim2.new(0, 40, 0, 40), UDim2.new(0.5, -20, 0.05, 0), "^")
+local btnDown = createDpadButton("Down", UDim2.new(0, 40, 0, 40), UDim2.new(0.5, -20, 0.60, 0), "v")
+local btnLeft = createDpadButton("Left", UDim2.new(0, 40, 0, 40), UDim2.new(0.05, 0, 0.32, 0), "<")
+local btnRight = createDpadButton("Right", UDim2.new(0, 40, 0, 40), UDim2.new(0.65, 0, 0.32, 0), ">")
+
+btnUp.MouseButton1Down:Connect(function() moveForward = true end)
+btnUp.MouseButton1Up:Connect(function() moveForward = false end)
+btnUp.MouseLeave:Connect(function() moveForward = false end)
+
+btnDown.MouseButton1Down:Connect(function() moveBackward = true end)
+btnDown.MouseButton1Up:Connect(function() moveBackward = false end)
+btnDown.MouseLeave:Connect(function() moveBackward = false end)
+
+btnLeft.MouseButton1Down:Connect(function() moveLeft = true end)
+btnLeft.MouseButton1Up:Connect(function() moveLeft = false end)
+btnLeft.MouseLeave:Connect(function() moveLeft = false end)
+
+btnRight.MouseButton1Down:Connect(function() moveRight = true end)
+btnRight.MouseButton1Up:Connect(function() moveRight = false end)
+btnRight.MouseLeave:Connect(function() moveRight = false end)
+
+-- Z-Fly Panel UI inside TabUtility
+local ZFlyFrame = Instance.new("Frame")
+ZFlyFrame.Size = UDim2.new(1, -10, 0, 75)
+ZFlyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ZFlyFrame.Parent = TabUtility
+Instance.new("UICorner", ZFlyFrame).CornerRadius = UDim.new(0, 6)
+
+local ZFlyLabel = Instance.new("TextLabel")
+ZFlyLabel.Size = UDim2.new(0.6, 0, 0, 30)
+ZFlyLabel.Position = UDim2.new(0, 10, 0, 5)
+ZFlyLabel.BackgroundTransparency = 1
+ZFlyLabel.Text = "✈️ Z-FLY CONTROL"
+ZFlyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+ZFlyLabel.TextSize = 13
+ZFlyLabel.Font = Enum.Font.GothamBold
+ZFlyLabel.TextXAlignment = Enum.TextXAlignment.Left
+ZFlyLabel.Parent = ZFlyFrame
+
+local ZFlyToggleBtn = Instance.new("TextButton")
+ZFlyToggleBtn.Size = UDim2.new(0, 90, 0, 26)
+ZFlyToggleBtn.Position = UDim2.new(1, -100, 0, 6)
+ZFlyToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+ZFlyToggleBtn.Text = "Z-FLY: OFF"
+ZFlyToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+ZFlyToggleBtn.Font = Enum.Font.GothamBold
+ZFlyToggleBtn.TextSize = 11
+ZFlyToggleBtn.Parent = ZFlyFrame
+Instance.new("UICorner", ZFlyToggleBtn).CornerRadius = UDim.new(0, 12)
+
+local ZFlySpeedBox = Instance.new("TextBox")
+ZFlySpeedBox.Size = UDim2.new(0, 150, 0, 26)
+ZFlySpeedBox.Position = UDim2.new(0, 10, 0, 40)
+ZFlySpeedBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+ZFlySpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+ZFlySpeedBox.Text = "100"
+ZFlySpeedBox.TextSize = 12
+ZFlySpeedBox.Font = Enum.Font.GothamBold
+ZFlySpeedBox.PlaceholderText = "Fly Speed"
+ZFlySpeedBox.Parent = ZFlyFrame
+Instance.new("UICorner", ZFlySpeedBox).CornerRadius = UDim.new(0, 4)
+
+local function toggleZFly()
+    zFlyFlying = not zFlyFlying
+    remoteFrame.Visible = zFlyFlying -- Z-FLY ON hone par D-Pad dikhega, OFF hone par chhup jayega
+    
+    if zFlyFlying then
+        ZFlyToggleBtn.Text = "Z-FLY: ON"
+        ZFlyToggleBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
+        
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local hrp = char.HumanoidRootPart
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        
+        zFlyBodyVelocity = Instance.new("BodyVelocity")
+        zFlyBodyVelocity.Velocity = Vector3.zero
+        zFlyBodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        zFlyBodyVelocity.Parent = hrp
+        
+        zFlyBodyGyro = Instance.new("BodyGyro")
+        zFlyBodyGyro.P = 9e4
+        zFlyBodyGyro.MaxTorque = Vector3.new(9e4, 9e4, 9e4)
+        zFlyBodyGyro.CFrame = hrp.CFrame
+        zFlyBodyGyro.Parent = hrp
+        
+        if humanoid then humanoid.PlatformStand = true end
+    else
+        ZFlyToggleBtn.Text = "Z-FLY: OFF"
+        ZFlyToggleBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+        
+        if zFlyBodyVelocity then zFlyBodyVelocity:Destroy() end
+        if zFlyBodyGyro then zFlyBodyGyro:Destroy() end
+        
+        local char = LocalPlayer.Character
+        if char then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then humanoid.PlatformStand = false end
+        end
+    end
+    notifyToggle("Z-Fly", zFlyFlying)
+end
+
+ZFlyToggleBtn.MouseButton1Click:Connect(toggleZFly)
+
+RunService.RenderStepped:Connect(function()
+    if zFlyFlying and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        local camera = workspace.CurrentCamera
+        local moveDir = Vector3.zero
+        
+        if moveForward then moveDir = moveDir + camera.CFrame.LookVector end
+        if moveBackward then moveDir = moveDir - camera.CFrame.LookVector end
+        if moveLeft then moveDir = moveDir - camera.CFrame.RightVector end
+        if moveRight then moveDir = moveDir + camera.CFrame.RightVector end
+        
+        local currentSpeed = tonumber(ZFlySpeedBox.Text) or 100
+        
+        if zFlyBodyVelocity and zFlyBodyGyro then
+            zFlyBodyVelocity.Velocity = moveDir * currentSpeed
+            zFlyBodyGyro.CFrame = camera.CFrame
+        end
+    end
+end)
 -- ============================================================
 
 -- 1. SPEED MODIFIER
@@ -628,48 +793,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- 2. FLY CONTROL
-local flying = false
-local flySpeed = 50
-local flyConnection
-
-local function toggleFly(state)
-    flying = state
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    if flying then
-        local bv = Instance.new("BodyVelocity")
-        bv.Name = "ShadowFlyBV"
-        bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        bv.Velocity = Vector3.zero
-        bv.Parent = hrp
-
-        flyConnection = RunService.RenderStepped:Connect(function()
-            local cam = Workspace.CurrentCamera
-            local moveDir = Vector3.zero
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
-            bv.Velocity = moveDir * flySpeed
-        end)
-    else
-        if flyConnection then flyConnection:Disconnect() end
-        if hrp:FindFirstChild("ShadowFlyBV") then hrp.ShadowFlyBV:Destroy() end
-    end
-end
-
-createToggle(TabUtility, "Fly Control", function(state)
-    toggleFly(state)
-    notifyToggle("Fly Control", state)
-end)
-
--- 3. NOCLIP
+-- 2. NOCLIP
 local noclipEnabled = false
 RunService.Stepped:Connect(function()
     if noclipEnabled and LocalPlayer.Character then
@@ -686,11 +810,11 @@ createToggle(TabUtility, "Noclip", function(state)
     notifyToggle("Noclip", state)
 end)
 
--- 4. PLAYER ESP (FIXED: EXCLUDE LOCAL PLAYER & SHOW HP)
+-- 3. PLAYER ESP (FIXED: EXCLUDE LOCAL PLAYER & SHOW HP)
 local espEnabled = false
 
 local function addESP(player)
-    if player == LocalPlayer then return end -- FIX: Ignore LocalPlayer
+    if player == LocalPlayer then return end
     
     local function applyHighlight(char)
         if not espEnabled or not char then return end
@@ -702,7 +826,6 @@ local function addESP(player)
             highlight.Parent = char
         end
 
-        -- Health Tag BillBoard
         local hrp = char:WaitForChild("HumanoidRootPart", 5)
         local hum = char:WaitForChild("Humanoid", 5)
         if hrp and hum and not hrp:FindFirstChild("ShadowHealthTag") then
@@ -764,7 +887,7 @@ Players.PlayerAdded:Connect(function(p)
     end
 end)
 
--- 5. INFINITE JUMP
+-- 4. INFINITE JUMP
 local infJumpEnabled = false
 UserInputService.JumpRequest:Connect(function()
     if infJumpEnabled and LocalPlayer.Character then
@@ -780,7 +903,7 @@ createToggle(TabUtility, "Infinite Jump", function(state)
     notifyToggle("Infinite Jump", state)
 end)
 
--- 6. TELEPORT TO LAST DEATH POSITION
+-- 5. TELEPORT TO LAST DEATH POSITION
 local TpDeathBtn = Instance.new("TextButton")
 TpDeathBtn.Size = UDim2.new(1, -10, 0, 40)
 TpDeathBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -801,7 +924,7 @@ TpDeathBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 7. TELEPORT TO OTHER PLAYERS (PLAYER SELECTOR)
+-- 6. TELEPORT TO OTHER PLAYERS (PLAYER SELECTOR)
 local TpPlayerFrame = Instance.new("Frame")
 TpPlayerFrame.Size = UDim2.new(1, -10, 0, 75)
 TpPlayerFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -908,4 +1031,4 @@ end
 createLinkButton(TabLinks, "▶️ Copy YouTube Link (shadowsigmaboi)", "https://www.youtube.com/@shadowsigmaboi")
 createLinkButton(TabLinks, "💬 Copy Discord Server Link", "https://discord.gg/RDTduRUfc")
 
-print("✅ [SHADOW HUB] Fixed ESP, Speed Modifier & Teleport Features Loaded Successfully!")
+print("✅ [SHADOW HUB] Z-Fly & Remote Dynamic Visibility Loaded Successfully!")
